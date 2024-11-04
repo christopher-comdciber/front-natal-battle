@@ -9,7 +9,7 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* background-color: #242424; */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -32,7 +32,12 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #111827;
+  /* background-color: #111827; */
+  background-image: url('https://i.pinimg.com/originals/55/1f/15/551f15cf205c8a83518890a842990a0e.jpg') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-attachment: fixed !important;
+  min-height: 100vh !important;
 }
 
 h1 {
