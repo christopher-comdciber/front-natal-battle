@@ -10,10 +10,10 @@ const PlayerIdModal: React.FC<PlayerIdModalProps> = ({ onSubmit }) => {
 
   const handleSubmit = () => {
     const id = Number(inputValue);
-    if (id === 1 || id === 2) {
+    if (id === 0 || id === 1) {
       onSubmit(id);
     } else {
-      setErrorMessage('ID inválido. Por favor, insira 1 ou 2.');
+      setErrorMessage('ID inválido. Por favor, insira 0 ou 1.');
     }
   };
 
@@ -26,12 +26,12 @@ const PlayerIdModal: React.FC<PlayerIdModalProps> = ({ onSubmit }) => {
         className="p-6 bg-gray-900 rounded-lg shadow-lg"
         style={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', backdropFilter: 'blur(10px)' }}
       >
-        <label htmlFor="playerId" className="block mb-4 text-white text-lg font-bold">Insira seu ID de jogador (1 ou 2):</label>
+        <label htmlFor="playerId" className="block mb-4 text-white text-lg font-bold">Insira seu ID de jogador (0 ou 1):</label>
         <input
           id="playerId"
           type="number"
-          min="1"
-          max="2"
+          min="0"
+          max="1"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           className="p-2 mb-4 w-full bg-gray-700 border border-gray-600 rounded-md text-white"

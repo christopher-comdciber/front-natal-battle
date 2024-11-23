@@ -5,31 +5,36 @@ interface BoardProps {
   onCellClick: (rowIndex: number, cellIndex: number) => void;
 }
 
+
+const transformMatrixToBoard = (matrix: string[][]) => {
+  return matrix.map((row) =>
+    row.map((cell) => {
+      console.log("atualizando...");
+      if (cell === 'N') {
+        return 'green';
+      } else if (cell === 'A') {
+        return 'red';
+      } else if (cell === 'O') {
+        return 'blue';
+      }
+      else {
+        return null;
+      }
+    })
+  );
+};
+
+
 const Board: React.FC<BoardProps> = ({ matrix, onCellClick }) => {
   const [board, setBoard] = useState(Array.from({ length: 10 }, () => Array(10).fill(null)));
 
   useEffect(() => {
-    const newBoard = matrix.map((row, rowIndex) =>
-      row.map((cell, cellIndex) => {
-        if (cell === 'N') {
-          return 'green';
-        } else if (cell === 'A') {
-          return 'red';
-        } else {
-          return null;
-        }
-      })
-    );
+    const newBoard = transformMatrixToBoard(matrix);
     setBoard(newBoard);
   }, [matrix]);
 
   const handleCellClickInternal = (rowIndex: number, cellIndex: number) => {
-    setBoard((prevBoard) => {
-      const newBoard = prevBoard.map((row) => row.map(() => null)); // Redefinir todas as células para null
-      newBoard[rowIndex][cellIndex] = 'red'; // Pintar a célula clicada de vermelho
-      return newBoard;
-    });
-    onCellClick(rowIndex, cellIndex); // Chamar a função de callback passada como prop
+    onCellClick(rowIndex, cellIndex);
   };
 
   return (

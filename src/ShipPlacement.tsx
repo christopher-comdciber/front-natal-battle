@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { posicionarNavio } from './services/navalBattle';
 
 interface ShipPlacementProps {
   onShipSelected: (ship: { name: string; size: number }, orientation: 'horizontal' | 'vertical') => void;

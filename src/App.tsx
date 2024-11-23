@@ -1,19 +1,25 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from 'react';
 import './App.css';
 import Board from './Board';
 import Console from './Console';
 import ShipPlacement from './ShipPlacement';
-import { atacar, posicionarNavio, checkServerHealth, getTabuleiro } from './services/navalBattle';
+import { posicionarNavio, checkServerHealth, getTabuleiro, verificarPosicionamentoNavioJogador, getFase, atacar } from './services/navalBattle';
 import PlayerIdModal from './PlayerId';
+import Alert from './Alert';
 
 function App() {
   const [playerId, setPlayerId] = useState<number | null>(null);
-  const [responses, setResponses] = useState<any[]>([]);
+  const [fase, setFase] = useState('posicionamento'); // 'posicionamento' ou 'ataque'
   const [matrix, setMatrix] = useState<string[][]>(Array.from({ length: 10 }, () => Array(10).fill(null)));
   const [selectedShip, setSelectedShip] = useState<{ name: string; size: number } | null>(null);
   const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
-
-
+  const [responses, setResponses] = useState<any[]>([]);
+  const [naviosPosicionados, setNaviosPosicionados] = useState(false);
+  const [title, setTitle] = useState('Fase de posicionamento');
+  const [message, setMessage] = useState('');
+  // const [matrix, setMatrix] = useState(initialMatrix);
+  
 
   useEffect(() => {
     const storedPlayerId = localStorage.getItem('playerId');
@@ -33,13 +39,107 @@ function App() {
     console.log('Navio selecionado:', ship, orientation);
   };
 
-  const handleCellClick = (rowIndex: number, cellIndex: number) => {
+  const handleCellClick = async (rowIndex: number, cellIndex: number) => {
+
     console.log('Célula clicada:', rowIndex, cellIndex);
-    // Adicione a lógica que você deseja executar ao clicar na célula
+    if (fase === 'posicionamento') {
+      console.log('Fase de posicionamento');
+      handleShipPlacement(rowIndex, cellIndex);
+    } else if (fase === 'ataque') {
+      console.log('Fase de ataque');
+      const response = await handleAttack(rowIndex, cellIndex);
+      const { sucesso, coordenada, tabuleiro, mensagem } = response;
+      console.log('Resposta do ataque:', { sucesso, coordenada, tabuleiro, mensagem });
+          console.log('Resposta do ataque:', response);
+
+      setMatrix(tabuleiro);
+
+      setMessage(sucesso ? `Navio atingido em {x: ${coordenada.x}, y: ${coordenada.y} }. Jogue novamente.` : `Água em {x: ${coordenada.x}, y: ${coordenada.y} }.`);
+      
+    }
+  };
+
+  
+  const handleShipPlacement = async (rowIndex: number, cellIndex: number) => {
+    if (selectedShip) {
+      const position = { x: cellIndex, y: rowIndex };
+
+      const  {todosNavisPosicionados } = await verificarPosicionamentoNavioJogador(playerId!);
+
+      if (todosNavisPosicionados) {
+        console.log('Todos os seus navios já foram posicionados.');
+        setMessage('Todos os seus navios já foram posicionados.');
+      }    
+
+      posicionarNavio(playerId!, position, selectedShip.size, orientation)
+        .then(async (response) => {
+          setResponses((prevResponses) => [...prevResponses, { type: 'posicionarNavio', data: response }]);
+          const { sucesso, coordenadas, tabuleiro, mensagem } = response;
+
+          if (mensagem === 'Navio posicionado com sucesso!') {
+            setMessage(`Navio ${selectedShip.name} posicionado com sucesso em {x: ${position.x}, y: ${position.y} }.`);
+          }
+
+          
+            if (sucesso) {
+            setMatrix((prevMatrix) => {
+              const newMatrix = [...prevMatrix];
+              coordenadas.forEach(({ x, y }: { x: number; y: number }) => {
+              newMatrix[y][x] = tabuleiro[y][x];
+              });
+              return newMatrix;
+            });
+            }
+
+            const faseResponse = await getFase();
+            console.log('Fase:', faseResponse);
+            if (faseResponse.fase === 'Ataque') {
+              setFase('ataque');
+              setTitle('Fase de ataque');
+              setMessage('Todos os navios foram posicionados. A fase de ataque começou!');
+            }
+          })
+          .catch((error) => {
+          console.error('Erro ao posicionar navio:', error);
+          setMessage('Erro ao posicionar navio.');
+          setResponses((prevResponses) => [...prevResponses, { type: 'error', data: "Erro ao posicionar navio." }]);
+        });
+    } else {
+      console.log('Nenhum navio selecionado.');
+      setMessage('Você precisa selecionar um navio.');
+    }
   };
 
   const updateMatrix = (matrix: string[][]) => {
     setMatrix(matrix);
+  };
+
+  const handleAttack = async (rowIndex: number, cellIndex: number) => {
+    console.log('Atacando célula:', rowIndex, cellIndex);
+    try {
+      const response = await atacar(playerId!, { x: cellIndex, y: rowIndex });
+      console.log('Resposta do ataque:', response);
+      setResponses((prevResponses) => [...prevResponses, { type: 'atacar', data: response }]);
+      setMessage(`Ataque realizado na célula {x: ${cellIndex}, y: ${rowIndex}}.`);
+      return response;
+    } catch (error) {
+      console.error('Erro ao realizar ataque:', error);
+      setMessage('Erro ao realizar ataque.');
+      setResponses((prevResponses) => [...prevResponses, { type: 'error', data: "Erro ao realizar ataque." }]);
+    }
+  };
+
+  const todosNaviosPosicionados = async (): Promise<boolean> => {
+    console.log('Verificando posicionamento dos navios...', playerId);
+    try {
+      const navios = await verificarPosicionamentoNavioJogador(playerId!);
+      const { todosNavisPosicionados } = navios;
+      console.log('Navios:', todosNavisPosicionados);
+      return navios.length === 5;
+    } catch (error) {
+      console.error('Erro ao verificar posicionamento dos navios:', error);
+      return false;
+    }
   };
 
   useEffect(() => {
@@ -49,21 +149,10 @@ function App() {
         const health = await checkServerHealth();
         console.log('Server health:', health);
 
-        const tabuleiro = await getTabuleiro(0);
+        const tabuleiro = await getTabuleiro(playerId!);
         console.log('Tabuleiro:', tabuleiro);
 
         updateMatrix(tabuleiro);
-
-
-        const respostaPosicionar = await posicionarNavio(0, { x: 0, y: 0 }, 5, 'horizontal');
-        const respostaPosicionar2 = await posicionarNavio(0, { x: 5, y: 5 }, 2, 'horizontal');
-
-        setResponses((prevResponses) => [...prevResponses, { type: 'posicionarNavio', data: respostaPosicionar }]);
-        console.log('Resposta posicionar navio:', respostaPosicionar);
-
-        // const respostaAtaque = await atacar(0, { x: 1, y: 1 });
-        // setResponses((prevResponses) => [...prevResponses, { type: 'atacar', data: respostaAtaque }]);
-        // console.log('Resposta ataque:', respostaAtaque);
       } catch (error) {
         console.error('Erro ao conectar com o backend:', error);
         setResponses(() => [{ type: 'error', data: "Erro ao conectar com o backend." }]);
@@ -75,6 +164,11 @@ function App() {
       fetchData();
     }
   }, [playerId]);
+
+  useEffect(() => {
+    console.log('Matrix atualizada:', matrix);
+    setMatrix(matrix)
+  }, [matrix]);
 
   return (
     <div
@@ -88,6 +182,8 @@ function App() {
           <ShipPlacement onShipSelected={handleShipSelected} />
           <Board matrix={matrix} onCellClick={handleCellClick} />
           </div>
+          <Alert title={title} message={message} />
+
           <Console responses={responses} />
         </>
       )}
