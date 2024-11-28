@@ -1,9 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from "react";
 import "./App.css";
+import Board from "./components/PositionBoard";
 import Console from "./Console";
 import ShipPlacement from "./ShipPlacement";
 import {
+	posicionarNavio,
 	checkServerHealth,
+	verificarPosicionamentoNavioJogador,
+	getFase,
+	atacar,
 } from "./services/navalBattle";
 import PlayerIdModal from "./PlayerId";
 import Alert from "./Alert";
@@ -15,26 +21,36 @@ const socket = io("http://localhost:3001");
 
 function App() {
 	const [playerId, setPlayerId] = useState<number | null>(null);
-	const [fase, setFase] = useState("posicionamento");
-	const [orientation, setOrientation] = useState<"horizontal" | "vertical">(
-		"horizontal",
-	);
-	const [selectedShip, setSelectedShip] = useState<{
-		name: string;
-		size: number;
-	} | null>(null);
+	const [fase, setFase] = useState("posicionamento"); // 'posicionamento' ou 'ataque'
 	const [positionMatrix, setPositionMatrix] = useState<string[][]>(
 		Array.from({ length: 10 }, () => Array(10).fill(null)),
 	);
 	const [attackMatrix, setAttackMatrix] = useState<string[][]>(
 		Array.from({ length: 10 }, () => Array(10).fill(null)),
 	);
+
+	const [selectedShip, setSelectedShip] = useState<{
+		name: string;
+		size: number;
+	} | null>(null);
+	const [orientation, setOrientation] = useState<"horizontal" | "vertical">(
+		"horizontal",
+	);
 	const [responses, setResponses] = useState<any[]>([]);
+	const [naviosPosicionados, setNaviosPosicionados] = useState(false);
 	const [title, setTitle] = useState("Fase de posicionamento");
 	const [message, setMessage] = useState("");
+	const [gameState, setGameState] = useState(null);
 	const [jogadorAtual, setJogadorAtual] = useState(0);
 	const [ganhador, setGanhador] = useState(null);
 
+	useEffect(() => {
+		if (playerId === jogadorAtual) {
+			setTitle("Sua vez de jogar");
+		} else {
+			setTitle("Aguarde sua vez de jogar");
+		}
+	}, [jogadorAtual]);
 
 	useEffect(() => {
 		const storedPlayerId = localStorage.getItem("playerId");
@@ -51,84 +67,13 @@ function App() {
 			console.log("Desconectado do servidor:", socket.id);
 		});
 
-
-		socket.on('navioPosicionado', (resultado) => {
-      console.log('Navio posicionado:', resultado);
-
-			const { mensagem, sucesso, coordenadas, tabuleiro } = resultado;
-			if (sucesso) {
-				console.log('mensagem:', mensagem);
-				if (mensagem === "Navio posicionado com sucesso.") {
-					setMessage(
-						`Navio posicionado com sucesso`
-					);
-				}
-
-				setPositionMatrix((prevMatrix) => {
-					const newMatrix = [...prevMatrix];
-					coordenadas.forEach(({ x, y }: { x: number; y: number }) => {
-						newMatrix[y][x] = tabuleiro.posicionamento[y][x];
-					});
-					return newMatrix;
-				});
-			}
-    });
-
-		socket.on("ataqueRecebido", (data) => {
-
-			const { tabuleiro } = data;
-	
-			console.log("Seu id:", localStorage.getItem('playerId'), "Id do jogador que atacou:", data.playerId);
-			console.log(typeof playerId, typeof data.playerId);
-	
-			if (localStorage.getItem('playerId') != data.playerId) {
-				console.log("Mudando")
-				console.log("Seu id:", localStorage.getItem('playerId'), "Id do jogador que atacou:", data.playerId);
-	
-				setPositionMatrix(tabuleiro.posicionamento);
-				console.log("Ataque recebido:", tabuleiro.posicionamento);
-			}
-				
-				// setAttackMatrix((prevMatrix) => {
-				// 	const newMatrix = [...prevMatrix];
-				// 	newMatrix[data.y][data.x] = data.resultado;
-				// 	return newMatrix;
-				// });
-			});
-
-    socket.on('ataqueResultado', (response) => {
-      console.log('Resultado do ataque:', response);
-      // Atualize o estado do jogo conforme necessário
-
-			const { sucesso, coordenada, tabuleiro, mensagem } = response;
-		console.log("Resposta do ataque:", {
-			sucesso,
-			coordenada,
-			tabuleiro,
-			mensagem,
+		socket.on("estadoAtualizado", (game) => {
+			setGameState(game);
 		});
-		console.log("Resposta do ataque:", response);
-
-		setAttackMatrix(tabuleiro.ataque);
-		// setPositionMatrix(tabuleiro.posicionamento);
-
-		setMessage(
-			sucesso
-				? `Navio atingido em {x: ${coordenada.x}, y: ${coordenada.y} }. Jogue novamente.`
-				: `Água em {x: ${coordenada.x}, y: ${coordenada.y} }.`,
-		);
-    });
 
 		socket.on("turnoAlterado", (data) => {
-			console.log("Turno alterado:", data.turnoAtual);
+			console.log("TUrno alterado:", data.turnoAtual);
 			setJogadorAtual(data.turnoAtual);
-			
-			
-			if (playerId === data.turnoAtual) {
-				setMessage(`Jogador ${data.turnoAtual}, é sua vez de jogar.`);
-			} else {
-				setMessage(`Jogador ${data.turnoAtual} está jogando.`);
-			}
 		})
 
 		socket.on("faseAlterada", (data) => {
@@ -151,6 +96,27 @@ function App() {
 			setGanhador(vencedor);
 		})
 
+		socket.on("ataqueRecebido", (data) => {
+
+		const { tabuleiro } = data;
+
+		console.log("Seu id:", localStorage.getItem('playerId'), "Id do jogador que atacou:", data.playerId);
+		console.log(typeof playerId, typeof data.playerId);
+
+		if (localStorage.getItem('playerId') != data.playerId) {
+			console.log("Mudando")
+			console.log("Seu id:", localStorage.getItem('playerId'), "Id do jogador que atacou:", data.playerId);
+
+			setPositionMatrix(tabuleiro.posicionamento);
+			console.log("Ataque recebido:", tabuleiro.posicionamento);
+		}
+			
+			// setAttackMatrix((prevMatrix) => {
+			// 	const newMatrix = [...prevMatrix];
+			// 	newMatrix[data.y][data.x] = data.resultado;
+			// 	return newMatrix;
+			// });
+		});
 		return () => {
 			socket.off("connect");
 			socket.off("disconnect");
@@ -180,14 +146,90 @@ function App() {
 	};
 
 	const handleCellAttack = async (rowIndex: number, cellIndex: number) => {
-		await handleAttack(rowIndex, cellIndex);
+		if (playerId === jogadorAtual) {
+			console.log("Fase de ataque");
+		console.log("Célula clicada:", rowIndex + 1, cellIndex);
+
+		console.log("Fase de ataque");
+		const response = await handleAttack(rowIndex, cellIndex);
+		const { sucesso, coordenada, tabuleiro, mensagem } = response;
+		console.log("Resposta do ataque:", {
+			sucesso,
+			coordenada,
+			tabuleiro,
+			mensagem,
+		});
+		console.log("Resposta do ataque:", response);
+
+		setAttackMatrix(tabuleiro.ataque);
+		// setPositionMatrix(tabuleiro.posicionamento);
+
+		setMessage(
+			sucesso
+				? `Navio atingido em {x: ${coordenada.x}, y: ${coordenada.y} }. Jogue novamente.`
+				: `Água em {x: ${coordenada.x}, y: ${coordenada.y} }.`,
+		);
+		} else {
+			console.log(playerId, jogadorAtual)
+			console.log("Não é sua vez de jogar");
+			setMessage("Não é sua vez de jogar caraio");
+		}
 	};
 
 	const handleShipPlacement = async (rowIndex: number, cellIndex: number) => {
 		if (selectedShip) {
 			const position = { x: cellIndex, y: rowIndex };
-			const obj = { playerId: playerId, inicio: position, comprimento: selectedShip.size, direcao: orientation }
-			socket.emit('posicionarNavio', obj);
+
+			const { todosNavisPosicionados } =
+				await verificarPosicionamentoNavioJogador(playerId!);
+
+			if (todosNavisPosicionados) {
+				console.log("Todos os seus navios já foram posicionados.");
+				setMessage("Todos os seus navios já foram posicionados.");
+			}
+
+			posicionarNavio(playerId!, position, selectedShip.size, orientation)
+				.then(async (response) => {
+					setResponses((prevResponses) => [
+						...prevResponses,
+						{ type: "posicionarNavio", data: response },
+					]);
+					const { mensagem, sucesso, coordenadas, tabuleiro } = response;
+
+					if (mensagem === "Navio posicionado com sucesso!") {
+						setMessage(
+							`Navio ${selectedShip.name} posicionado com sucesso em {x: ${position.x}, y: ${position.y} }.`,
+						);
+					}
+
+					if (sucesso) {
+						setPositionMatrix((prevMatrix) => {
+							const newMatrix = [...prevMatrix];
+							coordenadas.forEach(({ x, y }: { x: number; y: number }) => {
+								newMatrix[y][x] = tabuleiro.posicionamento[y][x];
+							});
+							return newMatrix;
+						});
+					}
+
+					const faseResponse = await getFase();
+					console.log("Fase:", faseResponse);
+					if (faseResponse.fase === "Ataque") {
+						setFase("ataque");
+						setTitle("Fase de ataque");
+						setMessage(
+							"Todos os navios foram posicionados. A fase de ataque começou!",
+						);
+					}
+				})
+				.catch((error) => {
+					console.error("Erro ao posicionar navio:", error);
+					setMessage("Erro ao posicionar navio.");
+					setResponses((prevResponses) => [
+						...prevResponses,
+						{ type: "error", data: "Erro ao posicionar navio." },
+					]);
+				});
 		} else {
 			console.log("Nenhum navio selecionado.");
 			setMessage("Você precisa selecionar um navio.");
@@ -200,41 +242,43 @@ function App() {
 
 	const handleAttack = async (rowIndex: number, cellIndex: number) => {
 		console.log("Atacando célula:", rowIndex, cellIndex);
-
-		const obj = {
-			playerId,
-			coordenada: { x: cellIndex, y: rowIndex },
+		try {
+			const response = await atacar(playerId!, { x: cellIndex, y: rowIndex });
+			console.log("Resposta do ataque:", response);
+			setResponses((prevResponses) => [
+				...prevResponses,
+				{ type: "atacar", data: response },
+			]);
+			setMessage(
+				`Ataque realizado na célula {x: ${cellIndex}, y: ${rowIndex}}.`,
+			);
+			return response;
+		} catch (error) {
+			console.error("Erro ao realizar ataque:", error);
+			setMessage("Erro ao realizar ataque.");
+			setResponses((prevResponses) => [
+				...prevResponses,
+				{ type: "error", data: "Erro ao realizar ataque." },
+			]);
 		}
+	};
 
-		socket.emit('atacar', obj);
-
-		// try {
-		// 	const response = await atacar(playerId!, { x: cellIndex, y: rowIndex });
-		// 	console.log("Resposta do ataque:", response);
-		// 	setResponses((prevResponses) => [
-		// 		...prevResponses,
-		// 		{ type: "atacar", data: response },
-		// 	]);
-		// 	setMessage(
-		// 		`Ataque realizado na célula {x: ${cellIndex}, y: ${rowIndex}}.`,
-		// 	);
-		// 	return response;
-		// } catch (error) {
-		// 	console.error("Erro ao realizar ataque:", error);
-		// 	setMessage("Erro ao realizar ataque.");
-		// 	setResponses((prevResponses) => [
-		// 		...prevResponses,
-		// 		{ type: "error", data: "Erro ao realizar ataque." },
-		// 	]);
-		// }
+	const todosNaviosPosicionados = async (): Promise<boolean> => {
+		console.log("Verificando posicionamento dos navios...", playerId);
+		try {
+			const navios = await verificarPosicionamentoNavioJogador(playerId!);
+			const { todosNavisPosicionados } = navios;
+			console.log("Navios:", todosNavisPosicionados);
+			return navios.length === 5;
+		} catch (error) {
+			console.error("Erro ao verificar posicionamento dos navios:", error);
+			return false;
+		}
 	};
 
 	useEffect(() => {
 		const fetchData = async () => {
 			try {
-				if (fase === "posicionamento") {
-					setJogadorAtual(999);
-				}
 				console.log("oi");
 				const health = await checkServerHealth();
 				console.log("Server health:", health);
@@ -302,7 +346,6 @@ function App() {
                 <AttackBoard
                   matrix={attackMatrix}
                   onCellClick={handleCellAttack}
-									disabled={playerId !== jogadorAtual}
                 />
               </>
             )}
@@ -310,7 +353,7 @@ function App() {
               <h1>Fim de jogo, o player {ganhador} ganhou!</h1>
             )}
           </div>
-          <Alert title={title} message={message} playerTurn={jogadorAtual.toString()} />
+          <Alert title={title} message={message} />
           <Console responses={responses} />
         </>
 			)}

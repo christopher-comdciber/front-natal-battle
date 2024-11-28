@@ -47,10 +47,11 @@ export const atacar = async (
 	coordinates: { x: number; y: number },
 ) => {
 	try {
-		const response = await axios.post(`${API_URL}/attack`, {
+		const response = await axios.post(`${API_URL}/atacar`, {
 			playerId,
-			coordinates,
+			coordenada: coordinates,
 		});
+		console.log("Retornando do controller:", response.data);
 		return response.data;
 	} catch (error) {
 		console.error("Erro ao realizar ataque:", error);
@@ -58,13 +59,13 @@ export const atacar = async (
 	}
 };
 
-const getTabuleiro = async (playerId: number): Promise<any> => {
-	const response = await axios.get(`${API_URL}/getTabuleiro/${playerId}`);
-	const { tabuleiro } = response.data;
-	console.log(tabuleiro.grade);
+// const getTabuleiro = async (playerId: number): Promise<any> => {
+// 	const response = await axios.get(`${API_URL}/getTabuleiro/${playerId}`);
+// 	const { tabuleiro } = response.data;
+// 	console.log(tabuleiro.grade);
 
-	return tabuleiro.grade;
-};
+// 	return tabuleiro.grade;
+// };
 
 const getFase = async (): Promise<any> => {
 	const response = await axios.get(`${API_URL}/fase`);
@@ -74,7 +75,6 @@ const getFase = async (): Promise<any> => {
 export {
 	checkServerHealth,
 	posicionarNavio,
-	getTabuleiro,
 	verificarPosicionamentoTodosNavios,
 	verificarPosicionamentoNavioJogador,
 	getFase,
