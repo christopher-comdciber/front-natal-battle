@@ -186,47 +186,67 @@ function App() {
 			setFase("fim");
 			console.log("Fim de jogo:", data);
 			const { vencedor } = data;
+
 			setGanhador(vencedor);
-		});
-
-		socket.on("estadoAtual", (memento) => {
-			console.log("Estado atual recebido:", memento);
-			// Restaure o estado do jogo com base no memento recebido
-
-			const {
-				state: {
-					tabuleiros,
-					fase,
-					naviosPosicionados,
-					totalNavios,
-					turnoAtual,
-				},
-			} = memento;
-
-			const playerId = Number.parseInt(localStorage.getItem("playerId") || "0");
-
-			if (fase === 0) {
+			setTimeout(() => {
+				setPlayerId(null);
 				setFase("posicionamento");
+				setOrientation("horizontal");
+				setPositionedShips(new Set());
+				setSelectedShip(null);
+				setPositionMatrix(Array.from({ length: 10 }, () => Array(10).fill(null)));
+				setAttackMatrix(Array.from({ length: 10 }, () => Array(10).fill(null)));
+				setResponses([]);
 				setTitle("Fase de posicionamento");
-				setJogadorAtual(999);
-			} else if (fase === 1) {
-				setFase("ataque");
-				setTitle("Fase de ataque");
-			} else if (fase === 2) {
-				setFase("fim");
-				setTitle("Fim de jogo");
-			}
-			console.log("A fase é:", fase);
-			console.log(
-				"O tabuleiro de teste",
-				tabuleiros[playerId].dePosicionamento.grade,
-			);
-			setPositionMatrix(tabuleiros[playerId].dePosicionamento.grade);
-			setAttackMatrix(tabuleiros[playerId].deAtaque.grade);
-			// setPositionedShips(new Set(memento.positionedShips));
-			// setMinhaPontuacao(memento.minhaPontuacao);
-			// setPontuacaoInimiga(memento.pontuacaoInimiga);
+				setMessage("");
+				setJogadorAtual(0);
+				setMinhaPontuacao({ posicoesTotais: 0, posicoesAtingidas: 0 });
+				setPontuacaoInimiga({ posicoesTotais: 0, posicoesAtingidas: 0 });
+				setGanhador(null);
+				localStorage.removeItem("playerId");
+				window.location.reload();
+			}, 5000);
 		});
+
+		// FIX - Preciso arrumar o memento
+		// socket.on("estadoAtual", (memento) => {
+		// 	console.log("Estado atual recebido:", memento);
+		// 	// Restaure o estado do jogo com base no memento recebido
+
+		// 	const {
+		// 		state: {
+		// 			tabuleiros,
+		// 			fase,
+		// 			naviosPosicionados,
+		// 			totalNavios,
+		// 			turnoAtual,
+		// 		},
+		// 	} = memento;
+
+		// 	const playerId = Number.parseInt(localStorage.getItem("playerId") || "0");
+
+		// 	if (fase === 0) {
+		// 		setFase("posicionamento");
+		// 		setTitle("Fase de posicionamento");
+		// 		setJogadorAtual(999);
+		// 	} else if (fase === 1) {
+		// 		setFase("ataque");
+		// 		setTitle("Fase de ataque");
+		// 	} else if (fase === 2) {
+		// 		setFase("fim");
+		// 		setTitle("Fim de jogo");
+		// 	}
+		// 	console.log("A fase é:", fase);
+		// 	console.log(
+		// 		"O tabuleiro de teste",
+		// 		tabuleiros[playerId].dePosicionamento.grade,
+		// 	);
+		// 	setPositionMatrix(tabuleiros[playerId].dePosicionamento.grade);
+		// 	setAttackMatrix(tabuleiros[playerId].deAtaque.grade);
+		// 	// setPositionedShips(new Set(memento.positionedShips));
+		// 	// setMinhaPontuacao(memento.minhaPontuacao);
+		// 	// setPontuacaoInimiga(memento.pontuacaoInimiga);
+		// });
 
 		socket.on("pontuacao", (response) => {
 			console.log("Pontuação atualizada");
