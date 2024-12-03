@@ -58,16 +58,17 @@ function App() {
 			socket.emit("restaurarEstado");
 		});
 
-		socket.on("estadoAtual", (memento) => {
-			console.log("Estado atual recebido:", memento);
-			// Restaure o estado do jogo com base no memento recebido
-			setFase(memento.fase);
-			setPositionMatrix(memento.positionMatrix);
-			setAttackMatrix(memento.attackMatrix);
-			setPositionedShips(new Set(memento.positionedShips));
-			setMinhaPontuacao(memento.minhaPontuacao);
-			setPontuacaoInimiga(memento.pontuacaoInimiga);
-		});
+		// FIX - Preciso arrumar
+		// socket.on("estadoAtual", (memento) => {
+		// 	console.log("Estado atual recebido:", memento);
+		// 	// Restaure o estado do jogo com base no memento recebido
+		// 	setFase(memento.fase);
+		// 	setPositionMatrix(memento.positionMatrix);
+		// 	setAttackMatrix(memento.attackMatrix);
+		// 	setPositionedShips(new Set(memento.positionedShips));
+		// 	setMinhaPontuacao(memento.minhaPontuacao);
+		// 	setPontuacaoInimiga(memento.pontuacaoInimiga);
+		// });
 
 		socket.on("estadoRestaurado", (response) => {
 			if (response.sucesso) {
