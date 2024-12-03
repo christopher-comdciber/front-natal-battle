@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from "react";
 import "./App.css";
 import Console from "./Console";
@@ -17,7 +18,9 @@ function App() {
 	const [orientation, setOrientation] = useState<"horizontal" | "vertical">(
 		"horizontal",
 	);
-	const [positionedShips, setPositionedShips] = useState<Set<number>>(new Set());
+	const [positionedShips, setPositionedShips] = useState<Set<number>>(
+		new Set(),
+	);
 	const [selectedShip, setSelectedShip] = useState<{
 		name: string;
 		size: number;
@@ -32,8 +35,14 @@ function App() {
 	const [title, setTitle] = useState("Fase de posicionamento");
 	const [message, setMessage] = useState("");
 	const [jogadorAtual, setJogadorAtual] = useState(0);
-	const [minhaPontuacao, setMinhaPontuacao] = useState({ posicoesTotais: 0, posicoesAtingidas: 0 });
-	const [pontuacaoInimiga, setPontuacaoInimiga] = useState({ posicoesTotais: 0, posicoesAtingidas: 0 });
+	const [minhaPontuacao, setMinhaPontuacao] = useState({
+		posicoesTotais: 0,
+		posicoesAtingidas: 0,
+	});
+	const [pontuacaoInimiga, setPontuacaoInimiga] = useState({
+		posicoesTotais: 0,
+		posicoesAtingidas: 0,
+	});
 	const [ganhador, setGanhador] = useState(null);
 
 	useEffect(() => {
@@ -45,29 +54,28 @@ function App() {
 
 		socket.on("connect", () => {
 			console.log("Conectado ao servidor:", socket.id);
-			console.log("testando emissao")
+			console.log("testando emissao");
 			socket.emit("restaurarEstado");
-
 		});
 
 		socket.on("estadoAtual", (memento) => {
-      console.log("Estado atual recebido:", memento);
-      // Restaure o estado do jogo com base no memento recebido
-      setFase(memento.fase);
-      setPositionMatrix(memento.positionMatrix);
-      setAttackMatrix(memento.attackMatrix);
-      setPositionedShips(new Set(memento.positionedShips));
-      setMinhaPontuacao(memento.minhaPontuacao);
-      setPontuacaoInimiga(memento.pontuacaoInimiga);
-    });
+			console.log("Estado atual recebido:", memento);
+			// Restaure o estado do jogo com base no memento recebido
+			setFase(memento.fase);
+			setPositionMatrix(memento.positionMatrix);
+			setAttackMatrix(memento.attackMatrix);
+			setPositionedShips(new Set(memento.positionedShips));
+			setMinhaPontuacao(memento.minhaPontuacao);
+			setPontuacaoInimiga(memento.pontuacaoInimiga);
+		});
 
-    socket.on("estadoRestaurado", (response) => {
-      if (response.sucesso) {
-        console.log("Estado restaurado com sucesso");
-      } else {
-        console.log("Falha ao restaurar estado:", response.mensagem);
-      }
-    });
+		socket.on("estadoRestaurado", (response) => {
+			if (response.sucesso) {
+				console.log("Estado restaurado com sucesso");
+			} else {
+				console.log("Falha ao restaurar estado:", response.mensagem);
+			}
+		});
 
 		socket.on("disconnect", () => {
 			console.log("Desconectado do servidor:", socket.id);
@@ -78,9 +86,8 @@ function App() {
 			console.log("Pontuação:", response);
 
 			const [minha, inimiga] = response;
-  		setMinhaPontuacao(minha);
-  		setPontuacaoInimiga(inimiga);
-
+			setMinhaPontuacao(minha);
+			setPontuacaoInimiga(inimiga);
 		});
 
 		socket.on("navioPosicionado", (resultado) => {
@@ -125,19 +132,12 @@ function App() {
 
 				setPositionMatrix(tabuleiro.posicionamento);
 				console.log("Ataque recebido:", tabuleiro.posicionamento);
-				const msg = data.sucesso 
+				const msg = data.sucesso
 					? `acertou um navio em {x: ${data.coordenada.x}, y: ${data.coordenada.y} }.`
 					: `errou, água em {x: ${data.coordenada.x}, y: ${data.coordenada.y} }.`;
 
 				setMessage("O inimigo atacou e " + msg);
 			}
-
-
-			// setAttackMatrix((prevMatrix) => {
-			// 	const newMatrix = [...prevMatrix];
-			// 	newMatrix[data.y][data.x] = data.resultado;
-			// 	return newMatrix;
-			// });
 		});
 
 		socket.on("ataqueResultado", (response) => {
@@ -154,7 +154,6 @@ function App() {
 			console.log("Resposta do ataque:", response);
 
 			setAttackMatrix(tabuleiro.ataque);
-			// setPositionMatrix(tabuleiro.posicionamento);
 
 			setMessage(
 				sucesso
@@ -166,12 +165,6 @@ function App() {
 		socket.on("turnoAlterado", (data) => {
 			console.log("Turno alterado:", data.turnoAtual);
 			setJogadorAtual(data.turnoAtual);
-
-			if (playerId === data.turnoAtual) {
-				// setMessage(`Jogador ${data.turnoAtual}, é sua vez de jogar.`);
-			} else {
-				// setMessage(`Jogador ${data.turnoAtual} está jogando.`);
-			}
 		});
 
 		socket.on("faseAlterada", (data) => {
@@ -196,8 +189,8 @@ function App() {
 		});
 
 		socket.on("estadoAtual", (memento) => {
-      console.log("Estado atual recebido:", memento);
-      // Restaure o estado do jogo com base no memento recebido
+			console.log("Estado atual recebido:", memento);
+			// Restaure o estado do jogo com base no memento recebido
 
 			const {
 				state: {
@@ -206,9 +199,9 @@ function App() {
 					naviosPosicionados,
 					totalNavios,
 					turnoAtual,
-				}
+				},
 			} = memento;
-      
+
 			const playerId = Number.parseInt(localStorage.getItem("playerId") || "0");
 
 			if (fase === 0) {
@@ -223,44 +216,49 @@ function App() {
 				setTitle("Fim de jogo");
 			}
 			console.log("A fase é:", fase);
-			console.log("O tabuleiro de teste", tabuleiros[playerId].dePosicionamento.grade);
-      setPositionMatrix(tabuleiros[playerId].dePosicionamento.grade);
-      setAttackMatrix(tabuleiros[playerId].deAtaque.grade);
-      // setPositionedShips(new Set(memento.positionedShips));
-      // setMinhaPontuacao(memento.minhaPontuacao);
-      // setPontuacaoInimiga(memento.pontuacaoInimiga);
-    });
+			console.log(
+				"O tabuleiro de teste",
+				tabuleiros[playerId].dePosicionamento.grade,
+			);
+			setPositionMatrix(tabuleiros[playerId].dePosicionamento.grade);
+			setAttackMatrix(tabuleiros[playerId].deAtaque.grade);
+			// setPositionedShips(new Set(memento.positionedShips));
+			// setMinhaPontuacao(memento.minhaPontuacao);
+			// setPontuacaoInimiga(memento.pontuacaoInimiga);
+		});
 
-    socket.on("pontuacao", (response) => {
-      console.log("Pontuação atualizada");
-      console.log("Pontuação:", response);
+		socket.on("pontuacao", (response) => {
+			console.log("Pontuação atualizada");
+			console.log("Pontuação:", response);
 
-      const [minha, inimiga] = response;
-      setMinhaPontuacao(minha);
-      setPontuacaoInimiga(inimiga);
-    });
+			const [minha, inimiga] = response;
+			setMinhaPontuacao(minha);
+			setPontuacaoInimiga(inimiga);
+		});
 
-    socket.on("navioPosicionado", (resultado) => {
-      console.log("Navio posicionado:", resultado);
+		socket.on("navioPosicionado", (resultado) => {
+			console.log("Navio posicionado:", resultado);
 
-      const { mensagem, sucesso, coordenadas, tabuleiro } = resultado;
-      if (sucesso) {
-        console.log("mensagem:", mensagem);
-        if (mensagem === "Navio posicionado com sucesso." && selectedShip) {
-          setMessage(`Navio posicionado com sucesso`);
-          setPositionedShips((prevShips) => new Set(prevShips).add(selectedShip.size));
-          setSelectedShip(null); // Clear the selected ship after positioning
-        }
+			const { mensagem, sucesso, coordenadas, tabuleiro } = resultado;
+			if (sucesso) {
+				console.log("mensagem:", mensagem);
+				if (mensagem === "Navio posicionado com sucesso." && selectedShip) {
+					setMessage(`Navio posicionado com sucesso`);
+					setPositionedShips((prevShips) =>
+						new Set(prevShips).add(selectedShip.size),
+					);
+					setSelectedShip(null); // Clear the selected ship after positioning
+				}
 
-        setPositionMatrix((prevMatrix) => {
-          const newMatrix = [...prevMatrix];
-          coordenadas.forEach(({ x, y }: { x: number; y: number }) => {
-            newMatrix[y][x] = tabuleiro.posicionamento[y][x];
-          });
-          return newMatrix;
-        });
-      }
-    });
+				setPositionMatrix((prevMatrix) => {
+					const newMatrix = [...prevMatrix];
+					coordenadas.forEach(({ x, y }: { x: number; y: number }) => {
+						newMatrix[y][x] = tabuleiro.posicionamento[y][x];
+					});
+					return newMatrix;
+				});
+			}
+		});
 
 		return () => {
 			socket.off("connect");
@@ -300,7 +298,9 @@ function App() {
 				setMessage("Posicione outro tipo de navio.");
 				return;
 			}
-			setPositionedShips((prevShips) => new Set(prevShips).add(selectedShip.size));
+			setPositionedShips((prevShips) =>
+				new Set(prevShips).add(selectedShip.size),
+			);
 
 			const position = { x: cellIndex, y: rowIndex };
 			const obj = {
@@ -323,32 +323,12 @@ function App() {
 	const handleAttack = async (rowIndex: number, cellIndex: number) => {
 		console.log("Atacando célula:", rowIndex, cellIndex);
 
-		const obj = {
+		const ataque = {
 			playerId,
 			coordenada: { x: cellIndex, y: rowIndex },
 		};
 
-		socket.emit("atacar", obj);
-
-		// try {
-		// 	const response = await atacar(playerId!, { x: cellIndex, y: rowIndex });
-		// 	console.log("Resposta do ataque:", response);
-		// 	setResponses((prevResponses) => [
-		// 		...prevResponses,
-		// 		{ type: "atacar", data: response },
-		// 	]);
-		// 	setMessage(
-		// 		`Ataque realizado na célula {x: ${cellIndex}, y: ${rowIndex}}.`,
-		// 	);
-		// 	return response;
-		// } catch (error) {
-		// 	console.error("Erro ao realizar ataque:", error);
-		// 	setMessage("Erro ao realizar ataque.");
-		// 	setResponses((prevResponses) => [
-		// 		...prevResponses,
-		// 		{ type: "error", data: "Erro ao realizar ataque." },
-		// 	]);
-		// }
+		socket.emit("atacar", ataque);
 	};
 
 	useEffect(() => {
@@ -390,14 +370,6 @@ function App() {
 		setAttackMatrix(attackMatrix);
 	}, [attackMatrix]);
 
-	// useEffect(() => {
-	//   setTimeout(() => {
-	//     console.log("mudando para fase de ataque")
-	//     setFase("ataque");
-	// 					setTitle("Fase de ataque");
-	//   }, 3000)
-	// }, []);
-
 	return (
 		<div className="text-start text-white p-4 flex flex-col">
 			{playerId === null ? (
@@ -438,11 +410,11 @@ function App() {
 						playerTurn={jogadorAtual.toString()}
 					/>
 					<Console
-  responses={responses}
-  fase={fase}
-  minhaPontuacao={minhaPontuacao}
-  pontuacaoInimiga={pontuacaoInimiga}
-/>
+						responses={responses}
+						fase={fase}
+						minhaPontuacao={minhaPontuacao}
+						pontuacaoInimiga={pontuacaoInimiga}
+					/>
 				</>
 			)}
 		</div>

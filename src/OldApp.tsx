@@ -74,7 +74,7 @@ function App() {
 		socket.on("turnoAlterado", (data) => {
 			console.log("TUrno alterado:", data.turnoAtual);
 			setJogadorAtual(data.turnoAtual);
-		})
+		});
 
 		socket.on("faseAlterada", (data) => {
 			if (data.fase === 0) {
@@ -92,25 +92,34 @@ function App() {
 		socket.on("fimDeJogo", (data) => {
 			setFase("fim");
 			console.log("Fim de jogo:", data);
-			const {vencedor} = data;
+			const { vencedor } = data;
 			setGanhador(vencedor);
-		})
+		});
 
 		socket.on("ataqueRecebido", (data) => {
+			const { tabuleiro } = data;
 
-		const { tabuleiro } = data;
+			console.log(
+				"Seu id:",
+				localStorage.getItem("playerId"),
+				"Id do jogador que atacou:",
+				data.playerId,
+			);
+			console.log(typeof playerId, typeof data.playerId);
 
-		console.log("Seu id:", localStorage.getItem('playerId'), "Id do jogador que atacou:", data.playerId);
-		console.log(typeof playerId, typeof data.playerId);
+			if (localStorage.getItem("playerId") != data.playerId) {
+				console.log("Mudando");
+				console.log(
+					"Seu id:",
+					localStorage.getItem("playerId"),
+					"Id do jogador que atacou:",
+					data.playerId,
+				);
 
-		if (localStorage.getItem('playerId') != data.playerId) {
-			console.log("Mudando")
-			console.log("Seu id:", localStorage.getItem('playerId'), "Id do jogador que atacou:", data.playerId);
+				setPositionMatrix(tabuleiro.posicionamento);
+				console.log("Ataque recebido:", tabuleiro.posicionamento);
+			}
 
-			setPositionMatrix(tabuleiro.posicionamento);
-			console.log("Ataque recebido:", tabuleiro.posicionamento);
-		}
-			
 			// setAttackMatrix((prevMatrix) => {
 			// 	const newMatrix = [...prevMatrix];
 			// 	newMatrix[data.y][data.x] = data.resultado;
@@ -148,29 +157,29 @@ function App() {
 	const handleCellAttack = async (rowIndex: number, cellIndex: number) => {
 		if (playerId === jogadorAtual) {
 			console.log("Fase de ataque");
-		console.log("Célula clicada:", rowIndex + 1, cellIndex);
+			console.log("Célula clicada:", rowIndex + 1, cellIndex);
 
-		console.log("Fase de ataque");
-		const response = await handleAttack(rowIndex, cellIndex);
-		const { sucesso, coordenada, tabuleiro, mensagem } = response;
-		console.log("Resposta do ataque:", {
-			sucesso,
-			coordenada,
-			tabuleiro,
-			mensagem,
-		});
-		console.log("Resposta do ataque:", response);
+			console.log("Fase de ataque");
+			const response = await handleAttack(rowIndex, cellIndex);
+			const { sucesso, coordenada, tabuleiro, mensagem } = response;
+			console.log("Resposta do ataque:", {
+				sucesso,
+				coordenada,
+				tabuleiro,
+				mensagem,
+			});
+			console.log("Resposta do ataque:", response);
 
-		setAttackMatrix(tabuleiro.ataque);
-		// setPositionMatrix(tabuleiro.posicionamento);
+			setAttackMatrix(tabuleiro.ataque);
+			// setPositionMatrix(tabuleiro.posicionamento);
 
-		setMessage(
-			sucesso
-				? `Navio atingido em {x: ${coordenada.x}, y: ${coordenada.y} }. Jogue novamente.`
-				: `Água em {x: ${coordenada.x}, y: ${coordenada.y} }.`,
-		);
+			setMessage(
+				sucesso
+					? `Navio atingido em {x: ${coordenada.x}, y: ${coordenada.y} }. Jogue novamente.`
+					: `Água em {x: ${coordenada.x}, y: ${coordenada.y} }.`,
+			);
 		} else {
-			console.log(playerId, jogadorAtual)
+			console.log(playerId, jogadorAtual);
 			console.log("Não é sua vez de jogar");
 			setMessage("Não é sua vez de jogar caraio");
 		}
@@ -310,7 +319,7 @@ function App() {
 
 	useEffect(() => {
 		setAttackMatrix(attackMatrix);
-	}, [attackMatrix])
+	}, [attackMatrix]);
 
 	// useEffect(() => {
 	//   setTimeout(() => {
@@ -326,36 +335,36 @@ function App() {
 				<PlayerIdModal onSubmit={handlePlayerIdSubmit} />
 			) : (
 				<>
-          <div className="flex flex-col md:flex-row justify-center gap-1 items-center">
-            {fase === "posicionamento" && (
-              <>
-                <ShipPlacement onShipSelected={handleShipSelected} />
-                <PositionBoard
-                  matrix={positionMatrix}
-                  onCellClick={handleCellPosition}
-                />
-              </>
-            )}
-            {fase === "ataque" && (
-              <>
-                <PositionBoard
-                  matrix={positionMatrix}
-                  onCellClick={handleCellPosition}
-                  disabled={true}
-                />
-                <AttackBoard
-                  matrix={attackMatrix}
-                  onCellClick={handleCellAttack}
-                />
-              </>
-            )}
-            {fase === "fim" && (
-              <h1>Fim de jogo, o player {ganhador} ganhou!</h1>
-            )}
-          </div>
-          <Alert title={title} message={message} />
-          <Console responses={responses} />
-        </>
+					<div className="flex flex-col md:flex-row justify-center gap-1 items-center">
+						{fase === "posicionamento" && (
+							<>
+								<ShipPlacement onShipSelected={handleShipSelected} />
+								<PositionBoard
+									matrix={positionMatrix}
+									onCellClick={handleCellPosition}
+								/>
+							</>
+						)}
+						{fase === "ataque" && (
+							<>
+								<PositionBoard
+									matrix={positionMatrix}
+									onCellClick={handleCellPosition}
+									disabled={true}
+								/>
+								<AttackBoard
+									matrix={attackMatrix}
+									onCellClick={handleCellAttack}
+								/>
+							</>
+						)}
+						{fase === "fim" && (
+							<h1>Fim de jogo, o player {ganhador} ganhou!</h1>
+						)}
+					</div>
+					<Alert title={title} message={message} />
+					<Console responses={responses} />
+				</>
 			)}
 		</div>
 	);
