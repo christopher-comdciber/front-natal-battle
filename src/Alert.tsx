@@ -22,7 +22,7 @@ const Alert: React.FC<AlertProps> = ({ title, message, playerTurn}) => {
         </pre>
       </div>
       <div className="w-1/4 flex items-center justify-center">
-        <span>{playerTurn === localStorage.getItem("playerId") ? "Sua vez" : "Vez do adversário"}</span>
+        <span>{playerTurn === "999" || playerTurn === localStorage.getItem("playerId") ? "Sua vez" : "Vez do adversário"}</span>
       </div>
     </div>
   );

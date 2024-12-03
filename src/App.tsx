@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import Console from "./Console";
 import ShipPlacement from "./ShipPlacement";
-import {
-	checkServerHealth,
-} from "./services/navalBattle";
+import { checkServerHealth } from "./services/navalBattle";
 import PlayerIdModal from "./PlayerId";
 import Alert from "./Alert";
 import io from "socket.io-client";
@@ -19,6 +17,7 @@ function App() {
 	const [orientation, setOrientation] = useState<"horizontal" | "vertical">(
 		"horizontal",
 	);
+	const [positionedShips, setPositionedShips] = useState<Set<number>>(new Set());
 	const [selectedShip, setSelectedShip] = useState<{
 		name: string;
 		size: number;
@@ -33,8 +32,9 @@ function App() {
 	const [title, setTitle] = useState("Fase de posicionamento");
 	const [message, setMessage] = useState("");
 	const [jogadorAtual, setJogadorAtual] = useState(0);
+	const [minhaPontuacao, setMinhaPontuacao] = useState({ posicoesTotais: 0, posicoesAtingidas: 0 });
+	const [pontuacaoInimiga, setPontuacaoInimiga] = useState({ posicoesTotais: 0, posicoesAtingidas: 0 });
 	const [ganhador, setGanhador] = useState(null);
-
 
 	useEffect(() => {
 		const storedPlayerId = localStorage.getItem("playerId");
@@ -45,23 +45,52 @@ function App() {
 
 		socket.on("connect", () => {
 			console.log("Conectado ao servidor:", socket.id);
+			console.log("testando emissao")
+			socket.emit("restaurarEstado");
+
 		});
+
+		socket.on("estadoAtual", (memento) => {
+      console.log("Estado atual recebido:", memento);
+      // Restaure o estado do jogo com base no memento recebido
+      setFase(memento.fase);
+      setPositionMatrix(memento.positionMatrix);
+      setAttackMatrix(memento.attackMatrix);
+      setPositionedShips(new Set(memento.positionedShips));
+      setMinhaPontuacao(memento.minhaPontuacao);
+      setPontuacaoInimiga(memento.pontuacaoInimiga);
+    });
+
+    socket.on("estadoRestaurado", (response) => {
+      if (response.sucesso) {
+        console.log("Estado restaurado com sucesso");
+      } else {
+        console.log("Falha ao restaurar estado:", response.mensagem);
+      }
+    });
 
 		socket.on("disconnect", () => {
 			console.log("Desconectado do servidor:", socket.id);
 		});
 
+		socket.on("pontuacao", (response) => {
+			console.log("Pontuação atualizada");
+			console.log("Pontuação:", response);
 
-		socket.on('navioPosicionado', (resultado) => {
-      console.log('Navio posicionado:', resultado);
+			const [minha, inimiga] = response;
+  		setMinhaPontuacao(minha);
+  		setPontuacaoInimiga(inimiga);
+
+		});
+
+		socket.on("navioPosicionado", (resultado) => {
+			console.log("Navio posicionado:", resultado);
 
 			const { mensagem, sucesso, coordenadas, tabuleiro } = resultado;
 			if (sucesso) {
-				console.log('mensagem:', mensagem);
+				console.log("mensagem:", mensagem);
 				if (mensagem === "Navio posicionado com sucesso.") {
-					setMessage(
-						`Navio posicionado com sucesso`
-					);
+					setMessage(`Navio posicionado com sucesso`);
 				}
 
 				setPositionMatrix((prevMatrix) => {
@@ -72,69 +101,84 @@ function App() {
 					return newMatrix;
 				});
 			}
-    });
+		});
 
 		socket.on("ataqueRecebido", (data) => {
-
 			const { tabuleiro } = data;
-	
-			console.log("Seu id:", localStorage.getItem('playerId'), "Id do jogador que atacou:", data.playerId);
+
+			console.log(
+				"Seu id:",
+				localStorage.getItem("playerId"),
+				"Id do jogador que atacou:",
+				data.playerId,
+			);
 			console.log(typeof playerId, typeof data.playerId);
-	
-			if (localStorage.getItem('playerId') != data.playerId) {
-				console.log("Mudando")
-				console.log("Seu id:", localStorage.getItem('playerId'), "Id do jogador que atacou:", data.playerId);
-	
+
+			if (localStorage.getItem("playerId") != data.playerId) {
+				console.log("Mudando");
+				console.log(
+					"Seu id:",
+					localStorage.getItem("playerId"),
+					"Id do jogador que atacou:",
+					data.playerId,
+				);
+
 				setPositionMatrix(tabuleiro.posicionamento);
 				console.log("Ataque recebido:", tabuleiro.posicionamento);
-			}
-				
-				// setAttackMatrix((prevMatrix) => {
-				// 	const newMatrix = [...prevMatrix];
-				// 	newMatrix[data.y][data.x] = data.resultado;
-				// 	return newMatrix;
-				// });
-			});
+				const msg = data.sucesso 
+					? `acertou um navio em {x: ${data.coordenada.x}, y: ${data.coordenada.y} }.`
+					: `errou, água em {x: ${data.coordenada.x}, y: ${data.coordenada.y} }.`;
 
-    socket.on('ataqueResultado', (response) => {
-      console.log('Resultado do ataque:', response);
-      // Atualize o estado do jogo conforme necessário
+				setMessage("O inimigo atacou e " + msg);
+			}
+
+
+			// setAttackMatrix((prevMatrix) => {
+			// 	const newMatrix = [...prevMatrix];
+			// 	newMatrix[data.y][data.x] = data.resultado;
+			// 	return newMatrix;
+			// });
+		});
+
+		socket.on("ataqueResultado", (response) => {
+			console.log("Resultado do ataque:", response);
+			// Atualize o estado do jogo conforme necessário
 
 			const { sucesso, coordenada, tabuleiro, mensagem } = response;
-		console.log("Resposta do ataque:", {
-			sucesso,
-			coordenada,
-			tabuleiro,
-			mensagem,
+			console.log("Resposta do ataque:", {
+				sucesso,
+				coordenada,
+				tabuleiro,
+				mensagem,
+			});
+			console.log("Resposta do ataque:", response);
+
+			setAttackMatrix(tabuleiro.ataque);
+			// setPositionMatrix(tabuleiro.posicionamento);
+
+			setMessage(
+				sucesso
+					? `Navio atingido em {x: ${coordenada.x}, y: ${coordenada.y} }. Jogue novamente.`
+					: `Água em {x: ${coordenada.x}, y: ${coordenada.y} }.`,
+			);
 		});
-		console.log("Resposta do ataque:", response);
-
-		setAttackMatrix(tabuleiro.ataque);
-		// setPositionMatrix(tabuleiro.posicionamento);
-
-		setMessage(
-			sucesso
-				? `Navio atingido em {x: ${coordenada.x}, y: ${coordenada.y} }. Jogue novamente.`
-				: `Água em {x: ${coordenada.x}, y: ${coordenada.y} }.`,
-		);
-    });
 
 		socket.on("turnoAlterado", (data) => {
 			console.log("Turno alterado:", data.turnoAtual);
 			setJogadorAtual(data.turnoAtual);
-			
-			
+
 			if (playerId === data.turnoAtual) {
-				setMessage(`Jogador ${data.turnoAtual}, é sua vez de jogar.`);
+				// setMessage(`Jogador ${data.turnoAtual}, é sua vez de jogar.`);
 			} else {
-				setMessage(`Jogador ${data.turnoAtual} está jogando.`);
+				// setMessage(`Jogador ${data.turnoAtual} está jogando.`);
 			}
-		})
+		});
 
 		socket.on("faseAlterada", (data) => {
 			if (data.fase === 0) {
 				setFase("posicionamento");
 				setTitle("Fase de posicionamento");
+				setJogadorAtual(999);
 			} else if (data.fase === 1) {
 				setFase("ataque");
 				setTitle("Fase de ataque");
@@ -147,9 +191,76 @@ function App() {
 		socket.on("fimDeJogo", (data) => {
 			setFase("fim");
 			console.log("Fim de jogo:", data);
-			const {vencedor} = data;
+			const { vencedor } = data;
 			setGanhador(vencedor);
-		})
+		});
+
+		socket.on("estadoAtual", (memento) => {
+      console.log("Estado atual recebido:", memento);
+      // Restaure o estado do jogo com base no memento recebido
+
+			const {
+				state: {
+					tabuleiros,
+					fase,
+					naviosPosicionados,
+					totalNavios,
+					turnoAtual,
+				}
+			} = memento;
+      
+			const playerId = Number.parseInt(localStorage.getItem("playerId") || "0");
+
+			if (fase === 0) {
+				setFase("posicionamento");
+				setTitle("Fase de posicionamento");
+				setJogadorAtual(999);
+			} else if (fase === 1) {
+				setFase("ataque");
+				setTitle("Fase de ataque");
+			} else if (fase === 2) {
+				setFase("fim");
+				setTitle("Fim de jogo");
+			}
+			console.log("A fase é:", fase);
+			console.log("O tabuleiro de teste", tabuleiros[playerId].dePosicionamento.grade);
+      setPositionMatrix(tabuleiros[playerId].dePosicionamento.grade);
+      setAttackMatrix(tabuleiros[playerId].deAtaque.grade);
+      // setPositionedShips(new Set(memento.positionedShips));
+      // setMinhaPontuacao(memento.minhaPontuacao);
+      // setPontuacaoInimiga(memento.pontuacaoInimiga);
+    });
+
+    socket.on("pontuacao", (response) => {
+      console.log("Pontuação atualizada");
+      console.log("Pontuação:", response);
+
+      const [minha, inimiga] = response;
+      setMinhaPontuacao(minha);
+      setPontuacaoInimiga(inimiga);
+    });
+
+    socket.on("navioPosicionado", (resultado) => {
+      console.log("Navio posicionado:", resultado);
+
+      const { mensagem, sucesso, coordenadas, tabuleiro } = resultado;
+      if (sucesso) {
+        console.log("mensagem:", mensagem);
+        if (mensagem === "Navio posicionado com sucesso." && selectedShip) {
+          setMessage(`Navio posicionado com sucesso`);
+          setPositionedShips((prevShips) => new Set(prevShips).add(selectedShip.size));
+          setSelectedShip(null); // Clear the selected ship after positioning
+        }
+
+        setPositionMatrix((prevMatrix) => {
+          const newMatrix = [...prevMatrix];
+          coordenadas.forEach(({ x, y }: { x: number; y: number }) => {
+            newMatrix[y][x] = tabuleiro.posicionamento[y][x];
+          });
+          return newMatrix;
+        });
+      }
+    });
 
 		return () => {
 			socket.off("connect");
@@ -185,9 +296,20 @@ function App() {
 
 	const handleShipPlacement = async (rowIndex: number, cellIndex: number) => {
 		if (selectedShip) {
+			if (positionedShips.has(selectedShip.size)) {
+				setMessage("Posicione outro tipo de navio.");
+				return;
+			}
+			setPositionedShips((prevShips) => new Set(prevShips).add(selectedShip.size));
+
 			const position = { x: cellIndex, y: rowIndex };
-			const obj = { playerId: playerId, inicio: position, comprimento: selectedShip.size, direcao: orientation }
-			socket.emit('posicionarNavio', obj);
+			const obj = {
+				playerId: playerId,
+				inicio: position,
+				comprimento: selectedShip.size,
+				direcao: orientation,
+			};
+			socket.emit("posicionarNavio", obj);
 		} else {
 			console.log("Nenhum navio selecionado.");
 			setMessage("Você precisa selecionar um navio.");
@@ -204,9 +326,9 @@ function App() {
 		const obj = {
 			playerId,
 			coordenada: { x: cellIndex, y: rowIndex },
-		}
+		};
 
-		socket.emit('atacar', obj);
+		socket.emit("atacar", obj);
 
 		// try {
 		// 	const response = await atacar(playerId!, { x: cellIndex, y: rowIndex });
@@ -266,7 +388,7 @@ function App() {
 
 	useEffect(() => {
 		setAttackMatrix(attackMatrix);
-	}, [attackMatrix])
+	}, [attackMatrix]);
 
 	// useEffect(() => {
 	//   setTimeout(() => {
@@ -282,37 +404,46 @@ function App() {
 				<PlayerIdModal onSubmit={handlePlayerIdSubmit} />
 			) : (
 				<>
-          <div className="flex flex-col md:flex-row justify-center gap-1 items-center">
-            {fase === "posicionamento" && (
-              <>
-                <ShipPlacement onShipSelected={handleShipSelected} />
-                <PositionBoard
-                  matrix={positionMatrix}
-                  onCellClick={handleCellPosition}
-                />
-              </>
-            )}
-            {fase === "ataque" && (
-              <>
-                <PositionBoard
-                  matrix={positionMatrix}
-                  onCellClick={handleCellPosition}
-                  disabled={true}
-                />
-                <AttackBoard
-                  matrix={attackMatrix}
-                  onCellClick={handleCellAttack}
+					<div className="flex flex-col md:flex-row justify-center gap-1 items-center">
+						{fase === "posicionamento" && (
+							<>
+								<ShipPlacement onShipSelected={handleShipSelected} />
+								<PositionBoard
+									matrix={positionMatrix}
+									onCellClick={handleCellPosition}
+								/>
+							</>
+						)}
+						{fase === "ataque" && (
+							<>
+								<PositionBoard
+									matrix={positionMatrix}
+									onCellClick={handleCellPosition}
+									disabled={true}
+								/>
+								<AttackBoard
+									matrix={attackMatrix}
+									onCellClick={handleCellAttack}
 									disabled={playerId !== jogadorAtual}
-                />
-              </>
-            )}
-            {fase === "fim" && (
-              <h1>Fim de jogo, o player {ganhador} ganhou!</h1>
-            )}
-          </div>
-          <Alert title={title} message={message} playerTurn={jogadorAtual.toString()} />
-          <Console responses={responses} />
-        </>
+								/>
+							</>
+						)}
+						{fase === "fim" && (
+							<h1>Fim de jogo, o player {ganhador} ganhou!</h1>
+						)}
+					</div>
+					<Alert
+						title={title}
+						message={message}
+						playerTurn={jogadorAtual.toString()}
+					/>
+					<Console
+  responses={responses}
+  fase={fase}
+  minhaPontuacao={minhaPontuacao}
+  pontuacaoInimiga={pontuacaoInimiga}
+/>
+				</>
 			)}
 		</div>
 	);
