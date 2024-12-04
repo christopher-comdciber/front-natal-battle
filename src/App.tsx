@@ -10,7 +10,12 @@ import io from "socket.io-client";
 import PositionBoard from "./components/PositionBoard";
 import AttackBoard from "./components/AttackBoard";
 
-const socket = io("http://localhost:3001");
+const socketUrl =
+	import.meta.env.DEV_OR_PROD === "prod"
+		? import.meta.env.VITE_SOCKET_URL_PROD
+		: import.meta.env.VITE_SOCKET_URL_DEV;
+
+const socket = io(socketUrl);
 
 function App() {
 	const [playerId, setPlayerId] = useState<number | null>(null);
@@ -34,7 +39,7 @@ function App() {
 	const [responses, setResponses] = useState<any[]>([]);
 	const [title, setTitle] = useState("Fase de posicionamento");
 	const [message, setMessage] = useState("");
-	const [jogadorAtual, setJogadorAtual] = useState(0);
+	const [jogadorAtual, setJogadorAtual] = useState(999);
 	const [minhaPontuacao, setMinhaPontuacao] = useState({
 		posicoesTotais: 0,
 		posicoesAtingidas: 0,
@@ -44,31 +49,89 @@ function App() {
 		posicoesAtingidas: 0,
 	});
 	const [ganhador, setGanhador] = useState(null);
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		const storedPlayerId = localStorage.getItem("playerId");
 		console.log("storedPlayerId:", storedPlayerId);
 		if (storedPlayerId) {
 			setPlayerId(Number(storedPlayerId));
+		} else {
+			setLoading(false);
 		}
+	}, []);
 
+	useEffect(() => {
 		socket.on("connect", () => {
 			console.log("Conectado ao servidor:", socket.id);
-			console.log("testando emissao");
-			socket.emit("restaurarEstado");
+			console.log("Recuperando estado do player");
+			socket.emit("solicitarEstado");
 		});
 
-		// FIX - Preciso arrumar
-		// socket.on("estadoAtual", (memento) => {
-		// 	console.log("Estado atual recebido:", memento);
-		// 	// Restaure o estado do jogo com base no memento recebido
-		// 	setFase(memento.fase);
-		// 	setPositionMatrix(memento.positionMatrix);
-		// 	setAttackMatrix(memento.attackMatrix);
-		// 	setPositionedShips(new Set(memento.positionedShips));
-		// 	setMinhaPontuacao(memento.minhaPontuacao);
-		// 	setPontuacaoInimiga(memento.pontuacaoInimiga);
-		// });
+		socket.on("estadoAtual", (response) => {
+			if (response.sucesso) {
+				// Restaure o estado do jogo com base no memento recebido
+				console.log("Estado atual recebido:", response.estado);
+
+				const { estado } = response;
+
+				setJogadorAtual(estado.turnoAtual);
+				console.log("No memento, é a vez do jogador:", estado.turnoAtual);
+				console.log("E o playerId salvo no state é:", playerId);
+
+				const playerIdd = localStorage.getItem("playerId");
+				console.log("playerId:", playerIdd);
+				if (playerIdd !== null) {
+					console.log("Fase recebida do memento:", estado.fase);
+					if (estado.fase === 0) {
+						setFase("posicionamento");
+						setTitle("Fase de posicionamento");
+						setJogadorAtual(999);
+					} else if (estado.fase === 1) {
+						setFase("ataque");
+						setTitle("Fase de ataque");
+					} else if (estado.fase === 2) {
+						setFase("fim");
+						setTitle("Fim de jogo");
+					}
+
+					setPositionMatrix(
+						estado.tabuleiros[playerIdd].dePosicionamento.grade,
+					);
+					setAttackMatrix(estado.tabuleiros[playerIdd].deAtaque.grade);
+					setPositionedShips(new Set(estado.positionedShips));
+					const [pontuacao0, pontuacao1] = estado.pontuacao;
+					if (Number(playerIdd) === 0) {
+						const { posicoesAtingidas, posicoesTotais } = pontuacao0;
+						setMinhaPontuacao({ posicoesAtingidas, posicoesTotais });
+
+						const {
+							posicoesAtingidas: inimigoPosicoesAtingidas,
+							posicoesTotais: inimigoPosicoesTotais,
+						} = pontuacao1;
+						setPontuacaoInimiga({
+							posicoesAtingidas: inimigoPosicoesAtingidas,
+							posicoesTotais: inimigoPosicoesTotais,
+						});
+					} else {
+						const { posicoesAtingidas, posicoesTotais } = pontuacao0;
+						setPontuacaoInimiga({ posicoesAtingidas, posicoesTotais });
+
+						const {
+							posicoesAtingidas: inimigoPosicoesAtingidas,
+							posicoesTotais: inimigoPosicoesTotais,
+						} = pontuacao1;
+						setMinhaPontuacao({
+							posicoesAtingidas: inimigoPosicoesAtingidas,
+							posicoesTotais: inimigoPosicoesTotais,
+						});
+					}
+				}
+			} else {
+				console.log("Falha ao restaurar estado:", response.mensagem);
+			}
+			setLoading(false);
+		});
 
 		socket.on("estadoRestaurado", (response) => {
 			if (response.sucesso) {
@@ -108,6 +171,24 @@ function App() {
 					});
 					return newMatrix;
 				});
+			} else {
+				console.log("mensagem:", mensagem);
+				socket.emit("getFase", (response: { fase: number }) => {
+					const { fase } = response;
+					console.log("mutando a fase", fase);
+					if (fase === 0) {
+						setFase("posicionamento");
+						setTitle("Fase de posicionamento");
+						setJogadorAtual(999);
+					} else if (fase === 1) {
+						setFase("ataque");
+						setTitle("Fase de ataque");
+					} else if (fase === 2) {
+						setFase("fim");
+						setTitle("Fim de jogo");
+					}
+				});
+				setMessage(mensagem);
 			}
 		});
 
@@ -194,12 +275,14 @@ function App() {
 				setOrientation("horizontal");
 				setPositionedShips(new Set());
 				setSelectedShip(null);
-				setPositionMatrix(Array.from({ length: 10 }, () => Array(10).fill(null)));
+				setPositionMatrix(
+					Array.from({ length: 10 }, () => Array(10).fill(null)),
+				);
 				setAttackMatrix(Array.from({ length: 10 }, () => Array(10).fill(null)));
 				setResponses([]);
 				setTitle("Fase de posicionamento");
 				setMessage("");
-				setJogadorAtual(0);
+				setJogadorAtual(999);
 				setMinhaPontuacao({ posicoesTotais: 0, posicoesAtingidas: 0 });
 				setPontuacaoInimiga({ posicoesTotais: 0, posicoesAtingidas: 0 });
 				setGanhador(null);
@@ -208,53 +291,19 @@ function App() {
 			}, 5000);
 		});
 
-		// FIX - Preciso arrumar o memento
-		// socket.on("estadoAtual", (memento) => {
-		// 	console.log("Estado atual recebido:", memento);
-		// 	// Restaure o estado do jogo com base no memento recebido
-
-		// 	const {
-		// 		state: {
-		// 			tabuleiros,
-		// 			fase,
-		// 			naviosPosicionados,
-		// 			totalNavios,
-		// 			turnoAtual,
-		// 		},
-		// 	} = memento;
-
-		// 	const playerId = Number.parseInt(localStorage.getItem("playerId") || "0");
-
-		// 	if (fase === 0) {
-		// 		setFase("posicionamento");
-		// 		setTitle("Fase de posicionamento");
-		// 		setJogadorAtual(999);
-		// 	} else if (fase === 1) {
-		// 		setFase("ataque");
-		// 		setTitle("Fase de ataque");
-		// 	} else if (fase === 2) {
-		// 		setFase("fim");
-		// 		setTitle("Fim de jogo");
-		// 	}
-		// 	console.log("A fase é:", fase);
-		// 	console.log(
-		// 		"O tabuleiro de teste",
-		// 		tabuleiros[playerId].dePosicionamento.grade,
-		// 	);
-		// 	setPositionMatrix(tabuleiros[playerId].dePosicionamento.grade);
-		// 	setAttackMatrix(tabuleiros[playerId].deAtaque.grade);
-		// 	// setPositionedShips(new Set(memento.positionedShips));
-		// 	// setMinhaPontuacao(memento.minhaPontuacao);
-		// 	// setPontuacaoInimiga(memento.pontuacaoInimiga);
-		// });
-
 		socket.on("pontuacao", (response) => {
 			console.log("Pontuação atualizada");
 			console.log("Pontuação:", response);
 
-			const [minha, inimiga] = response;
-			setMinhaPontuacao(minha);
-			setPontuacaoInimiga(inimiga);
+			const playerId = Number(localStorage.getItem("playerId"));
+			const [pontuacao0, pontuacao1] = response;
+			if (playerId === 0) {
+				setMinhaPontuacao(pontuacao0);
+				setPontuacaoInimiga(pontuacao1);
+			} else {
+				setMinhaPontuacao(pontuacao1);
+				setPontuacaoInimiga(pontuacao0);
+			}
 		});
 
 		socket.on("navioPosicionado", (resultado) => {
@@ -284,10 +333,17 @@ function App() {
 		return () => {
 			socket.off("connect");
 			socket.off("disconnect");
-			socket.off("estadoAtualizado");
+			socket.off("estadoAtual");
+			socket.off("estadoRestaurado");
+			socket.off("pontuacao");
+			socket.off("navioPosicionado");
+			socket.off("ataqueRecebido");
+			socket.off("ataqueResultado");
+			socket.off("turnoAlterado");
 			socket.off("faseAlterada");
+			socket.off("fimDeJogo");
 		};
-	}, []);
+	}, [playerId]);
 
 	const handlePlayerIdSubmit = (id: number) => {
 		setPlayerId(id);
@@ -310,15 +366,34 @@ function App() {
 	};
 
 	const handleCellAttack = async (rowIndex: number, cellIndex: number) => {
-		await handleAttack(rowIndex, cellIndex);
+		if (playerId === jogadorAtual) {
+			await handleAttack(rowIndex, cellIndex);
+		} else {
+			setMessage("Não é o seu turno.");
+		}
 	};
 
 	const handleShipPlacement = async (rowIndex: number, cellIndex: number) => {
+		// aqui
 		if (selectedShip) {
-			if (positionedShips.has(selectedShip.size)) {
-				setMessage("Posicione outro tipo de navio.");
-				return;
-			}
+			socket.emit("getFase", (response: { fase: number }) => {
+				const { fase } = response;
+				if (fase === 0) {
+					setFase("posicionamento");
+					setTitle("Fase de posicionamento");
+					setJogadorAtual(999);
+				} else if (fase === 1) {
+					setFase("ataque");
+					setTitle("Fase de ataque");
+				} else if (fase === 2) {
+					setFase("fim");
+					setTitle("Fim de jogo");
+				}
+			});
+			// if (positionedShips.has(selectedShip.size)) {
+			// 	setMessage("Posicione outro tipo de navio.");
+			// 	return;
+			// }
 			setPositionedShips((prevShips) =>
 				new Set(prevShips).add(selectedShip.size),
 			);
@@ -343,6 +418,8 @@ function App() {
 
 	const handleAttack = async (rowIndex: number, cellIndex: number) => {
 		console.log("Atacando célula:", rowIndex, cellIndex);
+
+		console.log("playerId:", playerId);
 
 		const ataque = {
 			playerId,
@@ -375,6 +452,7 @@ function App() {
 					{ type: "error", data: "Erro ao conectar com o backend." },
 				]);
 			}
+			setLoading(false);
 		};
 
 		if (playerId !== null) {
@@ -393,49 +471,55 @@ function App() {
 
 	return (
 		<div className="text-start text-white p-4 flex flex-col">
-			{playerId === null ? (
-				<PlayerIdModal onSubmit={handlePlayerIdSubmit} />
+			{loading ? (
+				<div>Carregando...</div>
 			) : (
 				<>
-					<div className="flex flex-col md:flex-row justify-center gap-1 items-center">
-						{fase === "posicionamento" && (
-							<>
-								<ShipPlacement onShipSelected={handleShipSelected} />
-								<PositionBoard
-									matrix={positionMatrix}
-									onCellClick={handleCellPosition}
-								/>
-							</>
-						)}
-						{fase === "ataque" && (
-							<>
-								<PositionBoard
-									matrix={positionMatrix}
-									onCellClick={handleCellPosition}
-									disabled={true}
-								/>
-								<AttackBoard
-									matrix={attackMatrix}
-									onCellClick={handleCellAttack}
-									disabled={playerId !== jogadorAtual}
-								/>
-							</>
-						)}
-						{fase === "fim" && (
-							<h1>Fim de jogo, o player {ganhador} ganhou!</h1>
-						)}
-					</div>
-					<Alert
-						title={title}
-						message={message}
-						playerTurn={jogadorAtual.toString()}
-					/>
-					<Console
-						responses={responses}
-						fase={fase}
-						minhaPontuacao={minhaPontuacao}
-						pontuacaoInimiga={pontuacaoInimiga}
-					/>
+					{playerId === null ? (
+						<PlayerIdModal onSubmit={handlePlayerIdSubmit} />
+					) : (
+						<>
+							<div className="flex flex-col md:flex-row justify-center gap-1 items-center">
+								{fase === "posicionamento" && (
+									<>
+										<ShipPlacement onShipSelected={handleShipSelected} />
+										<PositionBoard
+											matrix={positionMatrix}
+											onCellClick={handleCellPosition}
+										/>
+									</>
+								)}
+								{fase === "ataque" && (
+									<>
+										<PositionBoard
+											matrix={positionMatrix}
+											onCellClick={handleCellPosition}
+											disabled={true}
+										/>
+										<AttackBoard
+											matrix={attackMatrix}
+											onCellClick={handleCellAttack}
+											disabled={playerId !== jogadorAtual}
+										/>
+									</>
+								)}
+								{fase === "fim" && (
+									<h1>Fim de jogo, o player {ganhador} ganhou!</h1>
+								)}
+							</div>
+							<Alert
+								title={title}
+								message={message}
+								playerTurn={jogadorAtual.toString()}
+							/>
+							<Console
+								responses={responses}
+								fase={fase}
+								minhaPontuacao={minhaPontuacao}
+								pontuacaoInimiga={pontuacaoInimiga}
+							/>
+						</>
+					)}
 				</>
 			)}
 		</div>
