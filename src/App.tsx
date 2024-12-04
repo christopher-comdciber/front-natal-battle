@@ -317,7 +317,7 @@ function App() {
 					setPositionedShips((prevShips) =>
 						new Set(prevShips).add(selectedShip.size),
 					);
-					setSelectedShip(null); // Clear the selected ship after positioning
+					setSelectedShip(null);
 				}
 
 				setPositionMatrix((prevMatrix) => {
@@ -390,10 +390,6 @@ function App() {
 					setTitle("Fim de jogo");
 				}
 			});
-			// if (positionedShips.has(selectedShip.size)) {
-			// 	setMessage("Posicione outro tipo de navio.");
-			// 	return;
-			// }
 			setPositionedShips((prevShips) =>
 				new Set(prevShips).add(selectedShip.size),
 			);
