@@ -9,6 +9,7 @@ import Alert from "./Alert";
 import io from "socket.io-client";
 import PositionBoard from "./components/PositionBoard";
 import AttackBoard from "./components/AttackBoard";
+import { usePlayer } from "./utils/PlayerContext";
 
 const socketUrl =
 	import.meta.env.DEV_OR_PROD === "prod"
@@ -18,7 +19,8 @@ const socketUrl =
 const socket = io(socketUrl);
 
 function App() {
-	const [playerId, setPlayerId] = useState<number | null>(null);
+	// const [playerId, setPlayerId] = useState<number | null>(null);
+	const { playerId, setPlayerId } = usePlayer();
 	const [fase, setFase] = useState("posicionamento");
 	const [orientation, setOrientation] = useState<"horizontal" | "vertical">(
 		"horizontal",
@@ -50,6 +52,23 @@ function App() {
 	});
 	const [ganhador, setGanhador] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const [forceRender, setForceRender] = useState(false);
+
+	useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        setForceRender(prev => !prev);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setLoading(false);
+    }, 2000);
+  }, []);
 
 	useEffect(() => {
 		const storedPlayerId = localStorage.getItem("playerId");
